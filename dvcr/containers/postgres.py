@@ -1,14 +1,22 @@
 import time
+from typing import Optional, Union, Tuple, List
 
 from dvcr.containers.base import BaseContainer
+from dvcr.network import Network
 
 
 class Postgres(BaseContainer):
     def __init__(
-        self, image="postgres", tag="latest", port=5432, environment=None, network=None
+        self,
+        repo: str = "postgres",
+        tag: str = "latest",
+        port: int = 5432,
+        environment: Optional[dict] = None,
+        name: str = "postgres",
+        network: Optional[Network] = None,
     ):
         """ Constructor for Postgres """
-        super(Postgres, self).__init__(port=port, image=image, tag=tag, network=network)
+        super(Postgres, self).__init__(port=port, repo=repo, tag=tag, name=name, network=network)
 
         if not environment:
             environment = {"POSTGRES_USER": "postgres", "POSTGRES_PASSWORD": ""}
@@ -18,7 +26,7 @@ class Postgres(BaseContainer):
         self.db = environment.get("POSTGRES_DB", "postgres")
 
         self._container = self._client.containers.run(
-            image=image + ":" + tag,
+            image=repo + ":" + tag,
             detach=True,
             name="postgres",
             network=self._network.name,
@@ -34,32 +42,22 @@ class Postgres(BaseContainer):
             db=self.db,
         )
 
-    def execute_query(self, query, data=None):
+    def execute_query(self, query: str, path_or_buf: Union[str, bytes, None] = None):
 
-        response = self._container.exec_run(
-            cmd=["psql", "-U", "postgres", "-c", query],
-            socket=True if data else False,
-            stdin=True if data else False,
+        self.exec(
+            cmd=["psql", "-U", "postgres", "-e", "--command", query],
+            path_or_buf=path_or_buf,
         )
 
-        if data:
-            socket = response.output
-            socket.settimeout(1)
-            socket.sendall(string=data)
+        return self
 
-            socket.close()
+    def create_schema(self, name: str):
 
-        time.sleep(1)
+        self.execute_query(query="CREATE SCHEMA IF NOT EXISTS {};".format(name))
 
         return self
 
-    def create_schema(self, name):
-
-        self.execute_query(query="CREATE SCHEMA {};".format(name))
-
-        return self
-
-    def create_table(self, schema, table, columns):
+    def create_table(self, schema: str, table: str, columns: List[Tuple[str]]):
         self.create_schema(name=schema)
 
         cols = ", ".join([col + " " + dtype for col, dtype in columns])
@@ -72,15 +70,13 @@ class Postgres(BaseContainer):
 
         return self
 
-    def copy(self, source_file_path, schema, table):
+    def copy(self, schema: str, table: str, path_or_buf: Union[str, bytes]):
 
-        with open(source_file_path, "rb") as _file:
-
-            self.execute_query(
-                query="COPY {schema}.{table} FROM STDIN DELIMITER ',';".format(
-                    schema=schema, table=table
-                ),
-                data=_file.read(),
-            )
+        self.execute_query(
+            query="COPY {schema}.{table} FROM STDIN DELIMITER ',';".format(
+                schema=schema, table=table
+            ),
+            path_or_buf=path_or_buf,
+        )
 
         return self

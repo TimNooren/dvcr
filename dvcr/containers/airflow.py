@@ -7,7 +7,7 @@ from docker.errors import ContainerError
 class Airflow(BaseContainer):
     def __init__(
         self,
-        image="apache/airflow",
+        repo="apache/airflow",
         tag="latest",
         port=8080,
         dags_folder=None,
@@ -16,7 +16,7 @@ class Airflow(BaseContainer):
         environment=None,
     ):
         """ Constructor for Airflow """
-        super(Airflow, self).__init__(network=network, port=port, image=image, tag=tag)
+        super(Airflow, self).__init__(network=network, port=port, repo=repo, tag=tag)
 
         if backend:
             self.backend = backend
@@ -34,18 +34,21 @@ class Airflow(BaseContainer):
         airflow_env["AIRFLOW__CORE__SQL_ALCHEMY_CONN"] = self.backend.sql_alchemy_conn
 
         try:
-            self.init_db(image=image, tag=tag, environment=airflow_env)
+            self.init_db(repo=repo, tag=tag, environment=airflow_env)
         except ContainerError as e:
-            print(e.stderr.decode('utf8'))
+            print(e.stderr.decode("utf8"))
             import sys
+
             sys.exit(1)
 
-        self.create_admin_user(image=image, tag=tag, environment=airflow_env)
+        self.create_admin_user(repo=repo, tag=tag, environment=airflow_env)
 
-        self.start_scheduler(image=image, tag=tag, environment=airflow_env, dags_folder=dags_folder)
+        self.start_scheduler(
+            repo=repo, tag=tag, environment=airflow_env, dags_folder=dags_folder
+        )
 
         self._container = self._client.containers.run(
-            image=image + ":" + tag,
+            image=repo + ":" + tag,
             detach=True,
             name="airflow_webserver",
             network=self._network.name,
@@ -55,10 +58,10 @@ class Airflow(BaseContainer):
             volumes={dags_folder: {"bind": "/home/airflow/airflow/dags", "mode": "ro"}},
         )
 
-    def init_db(self, image, tag, environment):
+    def init_db(self, repo, tag, environment):
 
         self._client.containers.run(
-            image=image + ":" + tag,
+            image=repo + ":" + tag,
             detach=False,
             name="airflow_initdb",
             network=self._network.name,
@@ -67,10 +70,10 @@ class Airflow(BaseContainer):
             auto_remove=False,
         )
 
-    def create_admin_user(self, image, tag, environment):
+    def create_admin_user(self, repo, tag, environment):
 
         self._client.containers.run(
-            image=image + ":" + tag,
+            image=repo + ":" + tag,
             detach=False,
             name="airflow_create_user",
             network=self._network.name,
@@ -94,10 +97,10 @@ class Airflow(BaseContainer):
             auto_remove=True,
         )
 
-    def start_scheduler(self, image, tag, environment, dags_folder):
+    def start_scheduler(self, repo, tag, environment, dags_folder):
 
         self._client.containers.run(
-            image=image + ":" + tag,
+            image=repo + ":" + tag,
             detach=True,
             name="airflow_scheduler",
             network=self._network.name,
@@ -111,23 +114,13 @@ class Airflow(BaseContainer):
 
         self.unpause_dag(dag)
 
-        result = self._container.exec_run(
-                cmd=["airflow", "trigger_dag", dag],
-                stdout=True
-        )
-
-        print(result.output.decode("utf8"))
+        self.exec(cmd=["airflow", "trigger_dag", dag])
 
         return self
 
     def unpause_dag(self, dag):
 
-        result = self._container.exec_run(
-                cmd=["airflow", "unpause", dag],
-                stdout=True
-        )
-
-        print(result.output.decode("utf8"))
+        self.exec(cmd=["airflow", "unpause", dag])
 
     def delete(self):
         self.backend.delete()

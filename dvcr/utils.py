@@ -1,10 +1,25 @@
 
+import logging
+import random
+
+import colorama
 import docker
 
+COLORS = [
+    colorama.Fore.RED,
+    colorama.Fore.GREEN,
+    colorama.Fore.YELLOW,
+    colorama.Fore.BLUE,
+    colorama.Fore.MAGENTA,
+    colorama.Fore.CYAN,
+]
 
-def wait(target, port, network):
+colorama.init(autoreset=True)
 
-    print("Waiting for " + target)
+
+def wait(target, port, network, logger):
+
+    logger.info("Waiting for %s ⏳", colorama.Style.BRIGHT + target + colorama.Style.NORMAL)
 
     client = docker.from_env()
 
@@ -21,13 +36,37 @@ def wait(target, port, network):
             do
                 sleep 5;
             done;
-            """.format(target=target, port=port),
-        ]
+            """.format(
+                target=target, port=port
+            ),
+        ],
     )
 
     waiter.wait()
 
-    print(target + " is running")
+    logger.info("%s is up! 🚀", colorama.Style.BRIGHT + target + colorama.Style.NORMAL)
 
     waiter.stop()
     waiter.remove()
+
+
+def init_logger(name):
+
+    color = random.choice(COLORS)
+    COLORS.remove(color)
+
+    logger = logging.getLogger(name=name)
+    logger.setLevel(logging.DEBUG)
+
+    handler = logging.StreamHandler()
+    handler.setLevel(logging.DEBUG)
+
+    formatter = logging.Formatter(
+        color + "[%(name)s]" + colorama.Fore.RESET + ": %(message)s"
+    )
+
+    handler.setFormatter(formatter)
+
+    logger.addHandler(handler)
+
+    return logger

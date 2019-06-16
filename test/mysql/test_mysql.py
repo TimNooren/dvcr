@@ -20,12 +20,12 @@ class TestMySQL(unittest.TestCase):
             .create_table(
                 database="my_db",
                 table="my_table",
-                columns=[("name", "varchar(255)"), ("loadTs", "timestamp")],
+                columns=[("name", "VARCHAR(255)"), ("loadTs", "TIMESTAMP")],
             )
             .load_data(
-                source_file_path="test/mysql/records.csv",
                 database="my_db",
                 table="my_table",
+                path_or_buf="test/mysql/records.csv",
             )
         )
 

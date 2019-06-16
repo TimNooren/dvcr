@@ -5,5 +5,3 @@ from dvcr.containers.vertica import Vertica
 from dvcr.containers.postgres import Postgres
 from dvcr.containers.airflow import Airflow
 from dvcr.containers.mysql import MySQL
-
-

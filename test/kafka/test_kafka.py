@@ -16,7 +16,7 @@ class TestKafka(unittest.TestCase):
             Kafka()
             .wait()
             .write_records(
-                topic="test_topic", source_file_path="test/kafka/kafka_records.txt"
+                topic="test_topic", path_or_buf="test/kafka/kafka_records.txt"
             )
         )
 

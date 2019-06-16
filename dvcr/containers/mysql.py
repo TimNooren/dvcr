@@ -5,10 +5,10 @@ from dvcr.containers.base import BaseContainer
 
 class MySQL(BaseContainer):
     def __init__(
-        self, image="mysql", tag="latest", port=3306, environment=None, network=None
+        self, repo="mysql", tag="latest", port=3306, environment=None, name="mysql", network=None
     ):
         """ Constructor for MySQL """
-        super(MySQL, self).__init__(port=port, image=image, tag=tag, network=network)
+        super(MySQL, self).__init__(port=port, repo=repo, tag=tag, name=name, network=network)
 
         if not environment:
             environment = {}
@@ -22,7 +22,7 @@ class MySQL(BaseContainer):
         self.db = environment.get("MYSQL_DATABASE", "mysql")
 
         self._container = self._client.containers.run(
-            image=image + ":" + tag,
+            image=repo + ":" + tag,
             command=[
                 "--default-authentication-plugin=mysql_native_password",
                 "--explicit_defaults_for_timestamp=1",
@@ -48,9 +48,9 @@ class MySQL(BaseContainer):
             db=self.db,
         )
 
-    def execute_query(self, query, database="", data=None):
+    def execute_query(self, query, database="", path_or_buf=None):
 
-        response = self._container.exec_run(
+        self.exec(
             cmd=[
                 "mysql",
                 "--local-infile=1",
@@ -58,19 +58,10 @@ class MySQL(BaseContainer):
                 "-p" + self.password,
                 database,
                 "-e",
-                query
+                query,
             ],
-            socket=True if data else False,
-            stdin=True if data else False,
+            path_or_buf=path_or_buf,
         )
-
-        if data:
-            socket = response.output
-
-            socket.settimeout(1)
-            socket.sendall(string=data)
-
-            socket.close()
 
         time.sleep(1)
 
@@ -110,16 +101,14 @@ class MySQL(BaseContainer):
 
         self.execute_query(query=query)
 
-    def load_data(self, source_file_path, database, table):
+    def load_data(self, database, table, path_or_buf):
 
-        with open(source_file_path, "rb") as _file:
-            print("Loading data from " + source_file_path)
-            self.execute_query(
-                query="LOAD DATA LOCAL INFILE '/dev/stdin' INTO TABLE {table} FIELDS TERMINATED BY ',';".format(
-                    table=table
-                ),
-                database=database,
-                data=_file.read(),
-            )
+        self.execute_query(
+            query="LOAD DATA LOCAL INFILE '/dev/stdin' INTO TABLE {table} FIELDS TERMINATED BY ',';".format(
+                table=table
+            ),
+            database=database,
+            path_or_buf=path_or_buf,
+        )
 
         return self
