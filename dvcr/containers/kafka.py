@@ -8,15 +8,17 @@ from dvcr.network import Network
 class Kafka(BaseContainer):
     def __init__(
         self,
-        repo: str="confluentinc/cp-kafka",
-        tag: str="latest",
-        port: int=9092,
-        name: str="kafka",
-        network: Optional[Network]=None,
-        zookeeper: Optional[Zookeeper]=None,
+        repo: str = "confluentinc/cp-kafka",
+        tag: str = "latest",
+        port: int = 9092,
+        name: str = "kafka",
+        network: Optional[Network] = None,
+        zookeeper: Optional[Zookeeper] = None,
     ):
         """ Constructor for Kafka """
-        super(Kafka, self).__init__(port=port, repo=repo, tag=tag, name=name, network=network)
+        super(Kafka, self).__init__(
+            port=port, repo=repo, tag=tag, name=name, network=network
+        )
 
         if zookeeper:
             self.zookeeper = zookeeper
@@ -35,6 +37,7 @@ class Kafka(BaseContainer):
                 "KAFKA_LISTENER_SECURITY_PROTOCOL_MAP": "PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT",
                 "KAFKA_INTER_BROKER_LISTENER_NAME": "PLAINTEXT",
                 "KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR": 1,
+                "KAFKA_UNCLEAN_LEADER_ELECTION_ENABLE": True,
             },
             detach=True,
             name=name,
@@ -63,6 +66,8 @@ class Kafka(BaseContainer):
 
     def write_records(self, topic, key_separator=None, path_or_buf=None):
 
+        self._logger.info("Writing records to %s", topic)
+
         cmd = [
             "kafka-console-producer",
             "--broker-list",
@@ -76,10 +81,7 @@ class Kafka(BaseContainer):
         if key_separator:
             cmd += ["--property", "key.separator=" + key_separator]
 
-        self.exec(
-            cmd=cmd,
-            path_or_buf=path_or_buf,
-        )
+        self.exec(cmd=cmd, path_or_buf=path_or_buf)
 
         return self
 

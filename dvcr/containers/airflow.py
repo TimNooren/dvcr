@@ -4,19 +4,72 @@ from dvcr.containers.postgres import Postgres
 from docker.errors import ContainerError
 
 
+class AirflowWorker(BaseContainer):
+    def __init__(
+        self,
+        repo: str = "apache/airflow",
+        tag: str = "master-3.6",
+        name: str = "airflow",
+        port: int = 8793,
+        network=None,
+        environment=None,
+        dags_folder=None,
+    ):
+        super().__init__(repo=repo, tag=tag, name=name, port=port, network=network)
+
+        self._container = self._client.containers.run(
+            image=repo + ":" + tag,
+            detach=True,
+            name=name + "_worker",
+            network=self._network.name,
+            environment=environment,
+            command=["worker"],
+            volumes={dags_folder: {"bind": "/home/airflow/airflow/dags", "mode": "ro"}},
+            ports={port: port},
+        )
+
+
+class AirflowScheduler(BaseContainer):
+    def __init__(
+        self,
+        repo="apache/airflow",
+        tag="master-3.6",
+        port=8080,
+        dags_folder=None,
+        name="airflow",
+        network=None,
+        environment=None,
+    ):
+        super().__init__(network=network, port=port, repo=repo, name=name, tag=tag)
+
+        self._container = self._client.containers.run(
+            image=repo + ":" + tag,
+            detach=True,
+            name=name + "_scheduler",
+            network=self._network.name,
+            environment=environment,
+            command=["scheduler"],
+            ports={8080: 8081},
+            volumes={dags_folder: {"bind": "/home/airflow/airflow/dags", "mode": "ro"}},
+        )
+
+
 class Airflow(BaseContainer):
     def __init__(
         self,
         repo="apache/airflow",
-        tag="latest",
+        tag="master-3.6",
         port=8080,
         dags_folder=None,
         backend=None,
+        name="airflow",
         network=None,
         environment=None,
     ):
         """ Constructor for Airflow """
-        super(Airflow, self).__init__(network=network, port=port, repo=repo, tag=tag)
+        super().__init__(network=network, port=port, repo=repo, name=name, tag=tag)
+
+        self.use_default_backend = False
 
         if backend:
             self.backend = backend
@@ -26,12 +79,15 @@ class Airflow(BaseContainer):
                 "POSTGRES_PASSWORD": "airflow",
                 "POSTGRES_DB": "airflow",
             }
-            self.backend = Postgres(
-                network=network, tag=tag, environment=postgres_env
-            ).wait()
+            self.backend = Postgres(network=network, environment=postgres_env).wait()
+            self.use_default_backend = True
 
         airflow_env = environment or {}
-        airflow_env["AIRFLOW__CORE__SQL_ALCHEMY_CONN"] = self.backend.sql_alchemy_conn
+
+        if "AIRFLOW__CORE__SQL_ALCHEMY_CONN" not in airflow_env:
+            airflow_env[
+                "AIRFLOW__CORE__SQL_ALCHEMY_CONN"
+            ] = self.backend.sql_alchemy_conn()
 
         try:
             self.init_db(repo=repo, tag=tag, environment=airflow_env)
@@ -43,14 +99,14 @@ class Airflow(BaseContainer):
 
         self.create_admin_user(repo=repo, tag=tag, environment=airflow_env)
 
-        self.start_scheduler(
+        self.scheduler = AirflowScheduler(
             repo=repo, tag=tag, environment=airflow_env, dags_folder=dags_folder
         )
 
         self._container = self._client.containers.run(
             image=repo + ":" + tag,
             detach=True,
-            name="airflow_webserver",
+            name=name + "_webserver",
             network=self._network.name,
             environment=airflow_env,
             command=["webserver"],
@@ -67,7 +123,7 @@ class Airflow(BaseContainer):
             network=self._network.name,
             environment=environment,
             command=["initdb"],
-            auto_remove=False,
+            auto_remove=True,
         )
 
     def create_admin_user(self, repo, tag, environment):
@@ -97,19 +153,6 @@ class Airflow(BaseContainer):
             auto_remove=True,
         )
 
-    def start_scheduler(self, repo, tag, environment, dags_folder):
-
-        self._client.containers.run(
-            image=repo + ":" + tag,
-            detach=True,
-            name="airflow_scheduler",
-            network=self._network.name,
-            environment=environment,
-            command=["scheduler"],
-            ports={8080: 8081},
-            volumes={dags_folder: {"bind": "/home/airflow/airflow/dags", "mode": "ro"}},
-        )
-
     def trigger_dag(self, dag):
 
         self.unpause_dag(dag)
@@ -123,6 +166,7 @@ class Airflow(BaseContainer):
         self.exec(cmd=["airflow", "unpause", dag])
 
     def delete(self):
-        self.backend.delete()
-        self._container.stop()
-        self._container.remove()
+        if self.use_default_backend:
+            self.backend.delete()
+        self.scheduler.delete()
+        super(Airflow, self).delete()

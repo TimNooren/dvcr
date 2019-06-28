@@ -1,4 +1,4 @@
-
+import os
 import datetime
 import unittest
 
@@ -14,6 +14,8 @@ class TestMySQL(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
 
+        script_dir = os.path.dirname(os.path.realpath(__file__))
+
         cls.mysql = (
             MySQL()
             .wait()
@@ -25,7 +27,7 @@ class TestMySQL(unittest.TestCase):
             .load_data(
                 database="my_db",
                 table="my_table",
-                path_or_buf="test/mysql/records.csv",
+                path_or_buf=os.path.join(script_dir, "records.csv"),
             )
         )
 

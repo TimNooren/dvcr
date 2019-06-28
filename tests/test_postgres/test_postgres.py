@@ -1,9 +1,10 @@
 
 import datetime
+import os
 import unittest
 
-from docker.errors import DockerException
 import psycopg2
+from docker.errors import DockerException
 
 from dvcr.containers import Postgres
 
@@ -14,6 +15,8 @@ class TestPostgres(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
+
+        script_dir = os.path.dirname(os.path.realpath(__file__))
 
         cls.postgres = (
             Postgres()
@@ -26,7 +29,7 @@ class TestPostgres(unittest.TestCase):
             .copy(
                 schema="my_schema",
                 table="my_table",
-                path_or_buf="test/postgres/records.csv",
+                path_or_buf=os.path.join(script_dir, "records.csv"),
             )
         )
 

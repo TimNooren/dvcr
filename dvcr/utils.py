@@ -1,17 +1,22 @@
-
 import logging
 import random
 
 import colorama
 import docker
 
-COLORS = [
+COLOR = [
     colorama.Fore.RED,
     colorama.Fore.GREEN,
     colorama.Fore.YELLOW,
     colorama.Fore.BLUE,
     colorama.Fore.MAGENTA,
     colorama.Fore.CYAN,
+    colorama.Fore.LIGHTRED_EX,
+    colorama.Fore.LIGHTGREEN_EX,
+    colorama.Fore.LIGHTYELLOW_EX,
+    colorama.Fore.LIGHTBLUE_EX,
+    colorama.Fore.LIGHTMAGENTA_EX,
+    colorama.Fore.LIGHTCYAN_EX,
 ]
 
 colorama.init(autoreset=True)
@@ -19,7 +24,7 @@ colorama.init(autoreset=True)
 
 def wait(target, port, network, logger):
 
-    logger.info("Waiting for %s ⏳", colorama.Style.BRIGHT + target + colorama.Style.NORMAL)
+    logger.info("Waiting for %s ⏳", bright(target))
 
     client = docker.from_env()
 
@@ -44,25 +49,33 @@ def wait(target, port, network, logger):
 
     waiter.wait()
 
-    logger.info("%s is up! 🚀", colorama.Style.BRIGHT + target + colorama.Style.NORMAL)
+    logger.info("%s is up! 🚀", bright(target))
 
     waiter.stop()
     waiter.remove()
 
 
-def init_logger(name):
+def init_logger(name: str, level: int = logging.INFO):
 
-    color = random.choice(COLORS)
-    COLORS.remove(color)
+    logger_name = "dvcr_" + name
 
-    logger = logging.getLogger(name=name)
-    logger.setLevel(logging.DEBUG)
+    if logger_name in logging.root.manager.loggerDict:
+        return logging.getLogger(name=logger_name)   # Return logger immediately if it already exists
+
+    logger = logging.getLogger(name=logger_name)
+
+    try:
+        color = random.choice(COLOR)
+        COLOR.remove(color)
+    except IndexError:
+        color = colorama.Fore.WHITE
+
+    logger.setLevel(level=level)
 
     handler = logging.StreamHandler()
-    handler.setLevel(logging.DEBUG)
 
     formatter = logging.Formatter(
-        color + "[%(name)s]" + colorama.Fore.RESET + ": %(message)s"
+            color + "[" + name + "]" + colorama.Fore.RESET + ": %(message)s"
     )
 
     handler.setFormatter(formatter)
@@ -70,3 +83,7 @@ def init_logger(name):
     logger.addHandler(handler)
 
     return logger
+
+
+def bright(string):
+    return colorama.Style.BRIGHT + string + colorama.Style.NORMAL

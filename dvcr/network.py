@@ -1,10 +1,9 @@
 import uuid
 
-import colorama
 import docker
 from docker.errors import NotFound, APIError
 
-from dvcr.utils import init_logger
+from dvcr.utils import init_logger, bright
 
 
 class Network(object):
@@ -20,11 +19,20 @@ class Network(object):
 
         self.network = client.networks.create(name=name, driver=driver)
 
-        self.logger.info("Created network %s", colorama.Style.BRIGHT + self.name)
+        self.logger.info("Created network %s", bright(string=name))
 
     def delete(self):
-        self.network.remove()
-        self.logger.info("Deleted network %s ♻", colorama.Style.BRIGHT + self.name)
+        try:
+            self.network.remove()
+            self.logger.info("Deleted network %s ♻", bright(string=self.name))
+        except APIError as e:
+            if e.status_code == 403:
+                self.logger.warning(
+                    "Could not delete network %s. It is used by an active container",
+                    bright(string=self.name),
+                )
+            else:
+                raise e
 
 
 class DefaultNetwork(object):

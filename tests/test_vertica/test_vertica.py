@@ -1,8 +1,8 @@
-import unittest
 import datetime
+import unittest
 
-from docker.errors import DockerException
 import vertica_python
+from docker.errors import DockerException
 
 from dvcr.containers import Vertica
 
@@ -31,7 +31,7 @@ class TestVertica(unittest.TestCase):
         self.vertica.copy(
             schema="my_schema",
             table="my_table_1",
-            path_or_buf="test/vertica/records_1.csv",
+            path_or_buf="string,2019-01-01 00:00:00",
             header=False,
         )
 
@@ -55,7 +55,7 @@ class TestVertica(unittest.TestCase):
         self.vertica.copy(
             schema="my_schema",
             table="my_table_2",
-            path_or_buf="test/vertica/records_2.csv",
+            path_or_buf="string,1",
             header=False,
         )
 

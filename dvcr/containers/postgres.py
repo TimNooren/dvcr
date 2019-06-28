@@ -1,5 +1,4 @@
-import time
-from typing import Optional, Union, Tuple, List
+from typing import List, Optional, Tuple, Union
 
 from dvcr.containers.base import BaseContainer
 from dvcr.network import Network
@@ -9,7 +8,7 @@ class Postgres(BaseContainer):
     def __init__(
         self,
         repo: str = "postgres",
-        tag: str = "latest",
+        tag: str = "11",
         port: int = 5432,
         environment: Optional[dict] = None,
         name: str = "postgres",
@@ -28,13 +27,21 @@ class Postgres(BaseContainer):
         self._container = self._client.containers.run(
             image=repo + ":" + tag,
             detach=True,
-            name="postgres",
+            name=name,
             network=self._network.name,
             ports={port: port},
             environment=environment,
         )
 
-        self.sql_alchemy_conn = "postgresql://{user}:{pwd}@{host}:{port}/{db}".format(
+    def sql_alchemy_conn(self, dialect="postgresql", driver=None):
+
+        dialect_driver = dialect
+
+        if driver:
+            dialect_driver = dialect_driver + "+" + driver
+
+        return "{dialect_driver}://{user}:{pwd}@{host}:{port}/{db}".format(
+            dialect_driver=dialect_driver,
             user=self.user,
             pwd=self.password,
             host=self._container.name,
@@ -45,7 +52,7 @@ class Postgres(BaseContainer):
     def execute_query(self, query: str, path_or_buf: Union[str, bytes, None] = None):
 
         self.exec(
-            cmd=["psql", "-U", "postgres", "-e", "--command", query],
+            cmd=["psql", "-U", self.user, "-e", "--command", query],
             path_or_buf=path_or_buf,
         )
 
@@ -57,7 +64,7 @@ class Postgres(BaseContainer):
 
         return self
 
-    def create_table(self, schema: str, table: str, columns: List[Tuple[str]]):
+    def create_table(self, schema: str, table: str, columns: List[Tuple[str, str]]):
         self.create_schema(name=schema)
 
         cols = ", ".join([col + " " + dtype for col, dtype in columns])

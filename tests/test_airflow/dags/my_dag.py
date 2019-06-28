@@ -9,6 +9,8 @@ with DAG(
 ) as dag:
 
     def say_hello():
-        print("Hello world!")
+
+        with open("/home/airflow/my_file.txt", "w") as _file:
+            _file.write("Hello World!!")
 
     PythonOperator(task_id="say_hello", python_callable=say_hello)

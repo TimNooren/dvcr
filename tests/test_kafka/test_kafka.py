@@ -1,3 +1,4 @@
+import time
 import unittest
 
 import kafka
@@ -16,9 +17,11 @@ class TestKafka(unittest.TestCase):
             Kafka()
             .wait()
             .write_records(
-                topic="test_topic", path_or_buf="test/kafka/kafka_records.txt"
+                topic="test_topic", path_or_buf="1234|banana\n123✨|báñänà\n"*15000, key_separator="|"
             )
         )
+
+        time.sleep(10)
 
     @classmethod
     def tearDownClass(cls):
@@ -34,13 +37,15 @@ class TestKafka(unittest.TestCase):
     def test_record_format(self):
 
         consumer = kafka.KafkaConsumer(
-            "test_topic",
             bootstrap_servers="localhost:9092",
             group_id=None,
             consumer_timeout_ms=5000,
+            auto_offset_reset="earliest",
         )
 
-        batch = consumer.poll(timeout_ms=10000)
+        consumer.subscribe(topics=["test_topic"])
+
+        batch = consumer.poll(timeout_ms=5000)
 
         topic_partition = kafka.TopicPartition(topic="test_topic", partition=0)
 
@@ -53,3 +58,24 @@ class TestKafka(unittest.TestCase):
 
         self.assertEqual(message_1.key.decode("utf8"), "123✨")
         self.assertEqual(message_1.value.decode("utf8"), "báñänà")
+
+    def test_num_records(self):
+
+        consumer = kafka.KafkaConsumer(
+            bootstrap_servers="localhost:9092",
+            group_id=None,
+            consumer_timeout_ms=5000,
+            auto_offset_reset="earliest",
+        )
+
+        consumer.subscribe(topics=["test_topic"])
+
+        i = 0
+        for _ in consumer:
+            i += 1
+
+        self.assertEqual(30000, i)
+
+
+if __name__ == '__main__':
+    unittest.main()

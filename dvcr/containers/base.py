@@ -1,13 +1,12 @@
-
+import win32pipe
 import time
 from typing import Optional, Union, List, Callable
 
-from colorama import Style
 import docker
 from docker.errors import APIError, DockerException
 from docker.utils.socket import frames_iter
 
-from dvcr.utils import wait, init_logger
+from dvcr.utils import wait, init_logger, bright
 from dvcr.network import DefaultNetwork, Network
 
 STDOUT = 1
@@ -17,10 +16,10 @@ STDERR = 2
 class BaseContainer(object):
     def __init__(
         self,
-        port: int,
         repo: str,
         tag: str,
         name: str,
+        port: Optional[int] = None,
         network: Optional[Network] = None,
     ):
 
@@ -31,21 +30,21 @@ class BaseContainer(object):
         self._network = network or DefaultNetwork()
         self._client = docker.from_env()
 
-        self._logger.info("Pulling %s:%s", Style.BRIGHT + repo, tag)
+        self._logger.info("Pulling %s:%s", bright(repo), tag)
 
         try:
             image = self._client.images.pull(repository=repo, tag=tag)
-            self._logger.info("Pulled image %s:%s (%s)", Style.BRIGHT + repo, tag + Style.DIM, image.id)
+            self._logger.info("Pulled image %s:%s (%s)", bright(repo), tag, image.id)
         except APIError:
-            self._logger.info("Could not pull %s:%s", repo, tag)
+            self._logger.info("Could not pull %s:%s", bright(repo), tag)
             image = self._client.images.get(name=repo + ":" + tag)
-            self._logger.info("Found %s:%s locally (%s)", repo, tag, image.id)
+            self._logger.info("Found %s:%s locally (%s)", bright(repo), tag, image.id)
 
         self.post_wait_hooks = []
 
     def register_post_wait_hook(self, fn: Callable, *args, **kwargs):
 
-        self.post_wait_hooks.append((fn, args, kwargs))
+        self.post_wait_hooks.append([fn, args, kwargs])
 
     def wait(self):
         wait(
@@ -76,22 +75,44 @@ class BaseContainer(object):
 
         socket = self._client.api.exec_start(exec_id=exec_id, detach=False, socket=True)
 
-        if stdin:
-            socket.send(string=stdin)
+        while stdin:
+            n_bytes_written = socket.send(string=stdin)
+
+            self._logger.debug("Written %s bytes", n_bytes_written)
+
+            stdin = stdin[n_bytes_written:]
+
+            if not stdin:
+                break
+
+        read_buffer = ""
 
         for stream, frame in frames_iter(socket=socket, tty=False):
 
-            self._logger.info(frame.decode("utf8").strip("\n"))
+            read_buffer += frame.decode("utf8")
 
-            if stdin:  # break so this doesn't hang when writing to Postgres/Vertica
+            n_bytes_left = win32pipe.PeekNamedPipe(socket._handle, 2)[1]
+
+            self._logger.debug("Bytes left to read: %s", n_bytes_left)
+
+            if n_bytes_left <= 0:
+                self._logger.debug("No more bytes left to read")
+
+                if read_buffer:
+                    self._logger.info(read_buffer.strip("\n"))
+
                 break
+
+            if read_buffer.endswith("\n"):
+                self._logger.info(read_buffer.strip("\n"))
+                read_buffer = ""
 
         socket.close()
 
         exit_code = self._wait_for_cmd_completion(exec_id=exec_id)
 
         if exit_code != 0:
-            raise DockerException()
+            raise DockerException("Command exited with code: {}".format(exit_code))
 
     def _wait_for_cmd_completion(self, exec_id):
 
@@ -106,7 +127,7 @@ class BaseContainer(object):
     def delete(self):
         self._container.stop()
         self._container.remove()
-        self._logger.info("Deleted %s ♻", Style.BRIGHT + self._logger.name + Style.NORMAL)
+        self._logger.info("Deleted %s ♻", bright(self.name))
 
     def __getattr__(self, item):
         return getattr(self._container, item)

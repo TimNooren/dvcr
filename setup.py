@@ -2,7 +2,7 @@ from setuptools import setup
 
 setup(
     name="dvcr",
-    version="0.2.0",
+    version="0.3.0",
     description="Containers to use in tests",
     url="http://github.com/TimNooren/dvcr",
     author="Tim Nooren",
