@@ -32,7 +32,7 @@ We can now create tables and write data:
 [postgres]: CREATE SCHEMA
 [postgres]: CREATE TABLE my_schema.my_table (name VARCHAR(255));
 [postgres]: CREATE TABLE
->>> postgres.copy(schema="my_schema", table="my_table", path_or_buf="Speedy Cerviche,5\nPolly Esther,6\n")
+>>> postgres.copy(schema="my_schema", table="my_table", path_or_buf="Speedy Ceviche,5\nPolly Esther,6\n")
 [postgres]: COPY my_schema.my_table FROM STDIN DELIMITER ',';
 ```
 
@@ -41,7 +41,7 @@ Querying the table shows the desired result:
 postgres=# SELECT * FROM my_schema.my_table;
       name       | age
 -----------------+-----
- Speedy Cerviche |  5
+ Speedy Ceviche  |  5
  Polly Esther    |  6
 (2 rows)
 

@@ -1,4 +1,4 @@
-import time
+
 import unittest
 
 import kafka
@@ -21,8 +21,6 @@ class TestKafka(unittest.TestCase):
             )
         )
 
-        time.sleep(10)
-
     @classmethod
     def tearDownClass(cls):
         cls.kafka.delete()
@@ -39,13 +37,13 @@ class TestKafka(unittest.TestCase):
         consumer = kafka.KafkaConsumer(
             bootstrap_servers="localhost:9092",
             group_id=None,
-            consumer_timeout_ms=5000,
+            consumer_timeout_ms=500,
             auto_offset_reset="earliest",
         )
 
         consumer.subscribe(topics=["test_topic"])
 
-        batch = consumer.poll(timeout_ms=5000)
+        batch = consumer.poll(max_records=2, timeout_ms=500)
 
         topic_partition = kafka.TopicPartition(topic="test_topic", partition=0)
 

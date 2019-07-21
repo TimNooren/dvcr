@@ -50,3 +50,7 @@ class TestMySQL(unittest.TestCase):
         cur.execute('SELECT * FROM my_table;')
 
         self.assertEqual(cur.fetchall()[0], ('banana', datetime.datetime(2019, 1, 1, 0, 0)))
+
+
+if __name__ == '__main__':
+    unittest.main()

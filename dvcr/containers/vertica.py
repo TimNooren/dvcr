@@ -13,14 +13,25 @@ class Vertica(BaseContainer):
         name: str = "vertica",
         network: Optional[Network] = None,
     ):
-        """ Constructor for Vertica """
-        super(Vertica, self).__init__(port=port, repo=repo, tag=tag, name=name, network=network)
+        super(Vertica, self).__init__(
+            port=port, repo=repo, tag=tag, name=name, network=network
+        )
 
         self._container = self._client.containers.run(
             image=repo + ":" + tag,
             detach=True,
             name=name,
             network=self._network.name,
+            healthcheck={
+                "test": [
+                    "CMD",
+                    "/opt/vertica/bin/vsql",
+                    "-U",
+                    "dbadmin",
+                    "--list",
+                ],
+                "interval": 1000000000,
+            },
             ports={port: port},
         )
 

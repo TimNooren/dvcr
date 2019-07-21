@@ -13,7 +13,6 @@ class RabbitMQ(BaseContainer):
         name: str = "rabbitmq",
         network: Optional[Network] = None,
     ):
-        """ Constructor for RabbitMQ """
         super(RabbitMQ, self).__init__(
             port=port, repo=repo, tag=tag, name=name, network=network
         )
@@ -22,6 +21,11 @@ class RabbitMQ(BaseContainer):
             image=repo + ":" + tag,
             detach=True,
             name=name,
+            hostname=name,
+            healthcheck={
+                "test": ["CMD", "rabbitmq-diagnostics", "ping", "-q"],
+                "interval": 1000000000,
+            },
             network=self._network.name,
             ports={port: port},
         )

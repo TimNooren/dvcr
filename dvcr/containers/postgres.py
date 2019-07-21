@@ -14,11 +14,14 @@ class Postgres(BaseContainer):
         name: str = "postgres",
         network: Optional[Network] = None,
     ):
-        """ Constructor for Postgres """
-        super(Postgres, self).__init__(port=port, repo=repo, tag=tag, name=name, network=network)
+        super(Postgres, self).__init__(
+            port=port, repo=repo, tag=tag, name=name, network=network
+        )
 
         if not environment:
             environment = {"POSTGRES_USER": "postgres", "POSTGRES_PASSWORD": ""}
+
+        environment["PGPORT"] = port
 
         self.user = environment.get("POSTGRES_USER", "postgres")
         self.password = environment.get("POSTGRES_PASSWORD", "")
@@ -29,6 +32,17 @@ class Postgres(BaseContainer):
             detach=True,
             name=name,
             network=self._network.name,
+            healthcheck={
+                "test": [
+                    "CMD",
+                    "pg_isready",
+                    "--port",
+                    str(self.port),
+                    "--username",
+                    self.user,
+                ],
+                "interval": 1000000000,
+            },
             ports={port: port},
             environment=environment,
         )

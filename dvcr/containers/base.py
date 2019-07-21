@@ -1,4 +1,7 @@
-import win32pipe
+import io
+import os
+import sys
+import tarfile
 import time
 from typing import Optional, Union, List, Callable
 
@@ -6,11 +9,11 @@ import docker
 from docker.errors import APIError, DockerException
 from docker.utils.socket import frames_iter
 
-from dvcr.utils import wait, init_logger, bright
+from dvcr.utils import init_logger, bright, resolve_path_or_buf
 from dvcr.network import DefaultNetwork, Network
 
-STDOUT = 1
-STDERR = 2
+if sys.platform == "win32":
+    import win32pipe
 
 
 class BaseContainer(object):
@@ -47,28 +50,33 @@ class BaseContainer(object):
         self.post_wait_hooks.append([fn, args, kwargs])
 
     def wait(self):
-        wait(
-            target=self.name, port=self.port, network=self._network, logger=self._logger
-        )
 
-        for fn, args, kwargs in self.post_wait_hooks:
-            self._logger.info("executing post wait hook: " + str(fn))
-            fn(*args, **kwargs)
+        self._logger.info("Waiting for %s ⏳", bright(self.name))
 
-        return self
+        for i in range(60):
+            status = self._client.api.inspect_container(self._container.id)["State"][
+                "Health"
+            ]["Status"]
 
-    def exec(self, cmd: List[str], path_or_buf: Union[str, bytes, None] = None):
+            if status == "healthy":
+                self._logger.info("%s is up! 🚀", bright(self.name))
+                return self
+
+            time.sleep(1)
+
+        raise DockerException()
+
+    def exec(
+        self,
+        cmd: List[str],
+        path_or_buf: Union[str, bytes, None] = None,
+        delay_secs: int = 0,
+    ):
 
         stdin = None
 
         if path_or_buf:
-            try:
-                with open(path_or_buf, "rb") as _file:
-                    stdin = _file.read()
-            except OSError:
-                stdin = path_or_buf
-                if isinstance(stdin, str):
-                    stdin = stdin.encode("utf8")
+            stdin = resolve_path_or_buf(path_or_buf=path_or_buf)
 
         result = self._client.api.exec_create(container=self.id, cmd=cmd, stdin=True)
         exec_id = result["Id"]
@@ -76,7 +84,10 @@ class BaseContainer(object):
         socket = self._client.api.exec_start(exec_id=exec_id, detach=False, socket=True)
 
         while stdin:
-            n_bytes_written = socket.send(string=stdin)
+            if hasattr(socket, "send"):
+                n_bytes_written = socket.send(string=stdin)
+            else:
+                n_bytes_written = os.write(socket.fileno(), stdin)
 
             self._logger.debug("Written %s bytes", n_bytes_written)
 
@@ -85,15 +96,38 @@ class BaseContainer(object):
             if not stdin:
                 break
 
+        time.sleep(delay_secs)
+
         read_buffer = ""
+
+        peek_max_tries = 3
+        peek_tries = 0
 
         for stream, frame in frames_iter(socket=socket, tty=False):
 
             read_buffer += frame.decode("utf8")
 
-            n_bytes_left = win32pipe.PeekNamedPipe(socket._handle, 2)[1]
+            if read_buffer.endswith("\n"):
+                self._logger.info(read_buffer.strip("\n"))
+                read_buffer = ""
 
-            self._logger.debug("Bytes left to read: %s", n_bytes_left)
+            while peek_tries <= peek_max_tries:
+
+                if sys.platform == "win32":
+                    n_bytes_left = win32pipe.PeekNamedPipe(socket._handle, 2)[1]
+                else:
+                    print(socket.readable())
+                    n_bytes_left = 1
+
+                if not n_bytes_left:
+                    self._logger.debug("No bytes left to read. Retrying...")
+                    self._logger.debug("peek_tries: %s", peek_tries)
+                    peek_tries += 1
+                    time.sleep(1)
+                    continue
+
+                peek_tries = 0
+                break
 
             if n_bytes_left <= 0:
                 self._logger.debug("No more bytes left to read")
@@ -102,10 +136,6 @@ class BaseContainer(object):
                     self._logger.info(read_buffer.strip("\n"))
 
                 break
-
-            if read_buffer.endswith("\n"):
-                self._logger.info(read_buffer.strip("\n"))
-                read_buffer = ""
 
         socket.close()
 
@@ -128,6 +158,31 @@ class BaseContainer(object):
         self._container.stop()
         self._container.remove()
         self._logger.info("Deleted %s ♻", bright(self.name))
+
+    def copy(self, path_or_buf, target_path, user="root", group="root", mode="0600"):
+
+        target_dir, filename = os.path.split(target_path)
+
+        data = resolve_path_or_buf(path_or_buf)
+
+        tarinfo = tarfile.TarInfo(name=filename)
+        tarinfo.uname = user
+        tarinfo.gname = group
+        tarinfo.mtime = time.time()
+        tarinfo.size = len(data)
+
+        tarstream = io.BytesIO()
+
+        with tarfile.TarFile(fileobj=tarstream, mode="w") as tar:
+
+            tar.addfile(tarinfo, io.BytesIO(data))
+            tar.close()
+
+        tarstream.seek(0)
+
+        success = self._container.put_archive(path=target_dir, data=tarstream)
+
+        return success
 
     def __getattr__(self, item):
         return getattr(self._container, item)
