@@ -2,7 +2,6 @@ import logging
 import random
 
 import colorama
-import docker
 
 COLOR = [
     colorama.Fore.RED,
@@ -20,39 +19,6 @@ COLOR = [
 ]
 
 colorama.init(autoreset=True)
-
-
-def wait(target, port, network, logger):
-
-    logger.info("Waiting for %s ⏳", bright(target))
-
-    client = docker.from_env()
-
-    waiter = client.containers.run(
-        image="ubuntu:14.04",
-        detach=True,
-        name="wait_for_" + target,
-        network=network.name,
-        command=[
-            "/bin/bash",
-            "-c",
-            """
-            while ! nc -z {target} {port};
-            do
-                sleep 5;
-            done;
-            """.format(
-                target=target, port=port
-            ),
-        ],
-    )
-
-    waiter.wait()
-
-    logger.info("%s is up! 🚀", bright(target))
-
-    waiter.stop()
-    waiter.remove()
 
 
 def init_logger(name: str, level: int = logging.INFO):
@@ -87,3 +53,20 @@ def init_logger(name: str, level: int = logging.INFO):
 
 def bright(string):
     return colorama.Style.BRIGHT + string + colorama.Style.NORMAL
+
+
+def resolve_path_or_str(path_or_str):
+    """
+
+    :param path_or_str:             String representing a path to a file, or
+    :return:
+    """
+    try:
+        with open(path_or_str, "rb") as _file:
+            data = _file.read()
+    except OSError:
+        data = path_or_str
+        if isinstance(data, str):
+            data = data.encode("utf8")
+
+    return data

@@ -13,7 +13,6 @@ class Redis(BaseContainer):
         name: str = "redis",
         network: Optional[Network] = None,
     ):
-        """ Constructor for Redis """
         super(Redis, self).__init__(
             port=port, repo=repo, tag=tag, name=name, network=network
         )
@@ -23,6 +22,7 @@ class Redis(BaseContainer):
             detach=True,
             name=name,
             network=self._network.name,
+            healthcheck={"test": ["CMD", "redis-cli", "PING"], "interval": 1000000000},
             ports={port: port},
         )
 

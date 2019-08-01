@@ -5,10 +5,18 @@ from dvcr.containers.base import BaseContainer
 
 class MySQL(BaseContainer):
     def __init__(
-        self, repo="mysql", tag="latest", port=3306, environment=None, name="mysql", network=None
+        self,
+        repo="mysql",
+        tag="latest",
+        port=3306,
+        environment=None,
+        name="mysql",
+        network=None,
     ):
         """ Constructor for MySQL """
-        super(MySQL, self).__init__(port=port, repo=repo, tag=tag, name=name, network=network)
+        super(MySQL, self).__init__(
+            port=port, repo=repo, tag=tag, name=name, network=network
+        )
 
         if not environment:
             environment = {}
@@ -29,8 +37,13 @@ class MySQL(BaseContainer):
                 "--local-infile=1",
             ],
             detach=True,
-            name="mysql",
+            name=name,
+            hostname=name,
             network=self._network.name,
+            healthcheck={
+                "test": ["CMD", "mysqladmin", "ping", "-h", name],
+                "interval": 1000000000,
+            },
             ports={port: port},
             environment=environment,
         )
@@ -48,7 +61,7 @@ class MySQL(BaseContainer):
             db=self.db,
         )
 
-    def execute_query(self, query, database="", path_or_buf=None):
+    def execute_query(self, query, database="", path_or_str=None):
 
         self.exec(
             cmd=[
@@ -60,7 +73,7 @@ class MySQL(BaseContainer):
                 "-e",
                 query,
             ],
-            path_or_buf=path_or_buf,
+            path_or_str=path_or_str,
         )
 
         time.sleep(1)
@@ -101,14 +114,14 @@ class MySQL(BaseContainer):
 
         self.execute_query(query=query)
 
-    def load_data(self, database, table, path_or_buf):
+    def load_data(self, database, table, path_or_str):
 
         self.execute_query(
             query="LOAD DATA LOCAL INFILE '/dev/stdin' INTO TABLE {table} FIELDS TERMINATED BY ',';".format(
                 table=table
             ),
             database=database,
-            path_or_buf=path_or_buf,
+            path_or_str=path_or_str,
         )
 
         return self

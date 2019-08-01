@@ -8,6 +8,4 @@ from dvcr.containers.mysql import MySQL
 from dvcr.containers.cassandra import Cassandra
 from dvcr.containers.rabbitmq import RabbitMQ
 from dvcr.containers.redis import Redis
-
-
-
+from dvcr.containers.prometheus import Prometheus

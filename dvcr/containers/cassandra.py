@@ -24,6 +24,10 @@ class Cassandra(BaseContainer):
             detach=True,
             name=name,
             network=self._network.name,
+            healthcheck={
+                "test": ["CMD", "cqlsh", "-e", "describe cluster"],
+                "interval": 1000000000,
+            },
             ports={port: port},
             environment=environment,
         )

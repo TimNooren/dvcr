@@ -1,16 +1,15 @@
-import win32pipe
+import io
+import os
+import tarfile
 import time
 from typing import Optional, Union, List, Callable
 
 import docker
 from docker.errors import APIError, DockerException
-from docker.utils.socket import frames_iter
 
-from dvcr.utils import wait, init_logger, bright
 from dvcr.network import DefaultNetwork, Network
-
-STDOUT = 1
-STDERR = 2
+from dvcr.socket import simpler_socket
+from dvcr.utils import init_logger, bright, resolve_path_or_str
 
 
 class BaseContainer(object):
@@ -47,65 +46,44 @@ class BaseContainer(object):
         self.post_wait_hooks.append([fn, args, kwargs])
 
     def wait(self):
-        wait(
-            target=self.name, port=self.port, network=self._network, logger=self._logger
-        )
 
-        for fn, args, kwargs in self.post_wait_hooks:
-            self._logger.info("executing post wait hook: " + str(fn))
-            fn(*args, **kwargs)
+        self._logger.info("Waiting for %s ⏳", bright(self.name))
 
-        return self
+        for i in range(300):
+            inspect_result = self._client.api.inspect_container(self._container.id)
 
-    def exec(self, cmd: List[str], path_or_buf: Union[str, bytes, None] = None):
+            if inspect_result["State"]["Health"]["Status"] == "healthy":
+                self._logger.info("%s is up! 🚀", bright(self.name))
+                return self
+
+            time.sleep(1)
+
+        raise DockerException()
+
+    def exec(
+        self,
+        cmd: List[str],
+        path_or_str: Union[str, bytes, None] = None,
+        delay_secs: int = 0,
+    ):
 
         stdin = None
 
-        if path_or_buf:
-            try:
-                with open(path_or_buf, "rb") as _file:
-                    stdin = _file.read()
-            except OSError:
-                stdin = path_or_buf
-                if isinstance(stdin, str):
-                    stdin = stdin.encode("utf8")
+        if path_or_str:
+            stdin = resolve_path_or_str(path_or_str=path_or_str)
 
         result = self._client.api.exec_create(container=self.id, cmd=cmd, stdin=True)
         exec_id = result["Id"]
 
         socket = self._client.api.exec_start(exec_id=exec_id, detach=False, socket=True)
+        socket = simpler_socket(socket=socket, logger=self._logger)
 
-        while stdin:
-            n_bytes_written = socket.send(string=stdin)
+        socket.write(data=stdin)
 
-            self._logger.debug("Written %s bytes", n_bytes_written)
+        time.sleep(delay_secs)
 
-            stdin = stdin[n_bytes_written:]
-
-            if not stdin:
-                break
-
-        read_buffer = ""
-
-        for stream, frame in frames_iter(socket=socket, tty=False):
-
-            read_buffer += frame.decode("utf8")
-
-            n_bytes_left = win32pipe.PeekNamedPipe(socket._handle, 2)[1]
-
-            self._logger.debug("Bytes left to read: %s", n_bytes_left)
-
-            if n_bytes_left <= 0:
-                self._logger.debug("No more bytes left to read")
-
-                if read_buffer:
-                    self._logger.info(read_buffer.strip("\n"))
-
-                break
-
-            if read_buffer.endswith("\n"):
-                self._logger.info(read_buffer.strip("\n"))
-                read_buffer = ""
+        for line in socket.read():
+            self._logger.info(line)
 
         socket.close()
 
@@ -128,6 +106,31 @@ class BaseContainer(object):
         self._container.stop()
         self._container.remove()
         self._logger.info("Deleted %s ♻", bright(self.name))
+
+    def copy(self, path_or_str, target_path, user="root", group="root", mode="0600"):
+
+        target_dir, filename = os.path.split(target_path)
+
+        data = resolve_path_or_str(path_or_str)
+
+        tarinfo = tarfile.TarInfo(name=filename)
+        tarinfo.uname = user
+        tarinfo.gname = group
+        tarinfo.mtime = time.time()
+        tarinfo.size = len(data)
+
+        tarstream = io.BytesIO()
+
+        with tarfile.TarFile(fileobj=tarstream, mode="w") as tar:
+
+            tar.addfile(tarinfo, io.BytesIO(data))
+            tar.close()
+
+        tarstream.seek(0)
+
+        success = self._container.put_archive(path=target_dir, data=tarstream)
+
+        return success
 
     def __getattr__(self, item):
         return getattr(self._container, item)

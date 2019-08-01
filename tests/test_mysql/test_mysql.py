@@ -27,7 +27,7 @@ class TestMySQL(unittest.TestCase):
             .load_data(
                 database="my_db",
                 table="my_table",
-                path_or_buf=os.path.join(script_dir, "records.csv"),
+                path_or_str=os.path.join(script_dir, "records.csv"),
             )
         )
 
@@ -50,3 +50,7 @@ class TestMySQL(unittest.TestCase):
         cur.execute('SELECT * FROM my_table;')
 
         self.assertEqual(cur.fetchall()[0], ('banana', datetime.datetime(2019, 1, 1, 0, 0)))
+
+
+if __name__ == '__main__':
+    unittest.main()

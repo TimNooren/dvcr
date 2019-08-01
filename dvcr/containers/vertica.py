@@ -13,18 +13,29 @@ class Vertica(BaseContainer):
         name: str = "vertica",
         network: Optional[Network] = None,
     ):
-        """ Constructor for Vertica """
-        super(Vertica, self).__init__(port=port, repo=repo, tag=tag, name=name, network=network)
+        super(Vertica, self).__init__(
+            port=port, repo=repo, tag=tag, name=name, network=network
+        )
 
         self._container = self._client.containers.run(
             image=repo + ":" + tag,
             detach=True,
             name=name,
             network=self._network.name,
+            healthcheck={
+                "test": [
+                    "CMD",
+                    "/opt/vertica/bin/vsql",
+                    "-U",
+                    "dbadmin",
+                    "--list",
+                ],
+                "interval": 1000000000,
+            },
             ports={port: port},
         )
 
-    def execute_query(self, query, path_or_buf=None):
+    def execute_query(self, query, path_or_str=None):
 
         self.exec(
             cmd=[
@@ -35,7 +46,7 @@ class Vertica(BaseContainer):
                 "-c",
                 query,
             ],
-            path_or_buf=path_or_buf,
+            path_or_str=path_or_str,
         )
 
         return self
@@ -59,7 +70,7 @@ class Vertica(BaseContainer):
 
         return self
 
-    def copy(self, schema, table, path_or_buf, header=True):
+    def copy(self, schema, table, path_or_str, header=True):
 
         if header:
             skip = 1
@@ -70,7 +81,7 @@ class Vertica(BaseContainer):
             query="COPY {schema}.{table} FROM LOCAL STDIN SKIP {skip} ABORT ON ERROR DELIMITER ',';".format(
                 schema=schema, table=table, skip=skip
             ),
-            path_or_buf=path_or_buf,
+            path_or_str=path_or_str,
         )
 
         return self

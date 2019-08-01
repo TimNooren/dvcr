@@ -29,7 +29,7 @@ class TestPostgres(unittest.TestCase):
             .copy(
                 schema="my_schema",
                 table="my_table",
-                path_or_buf=os.path.join(script_dir, "records.csv"),
+                path_or_str=os.path.join(script_dir, "records.csv"),
             )
         )
 
@@ -51,7 +51,7 @@ class TestPostgres(unittest.TestCase):
         self.postgres.copy(
                 schema="my_schema",
                 table="my_table",
-                path_or_buf="apple,2019-06-16 11:55:00",
+                path_or_str="apple,2019-06-16 11:55:00",
             )
 
         conn = psycopg2.connect(user="postgres", host="localhost", port="5432")

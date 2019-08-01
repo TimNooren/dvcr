@@ -14,11 +14,14 @@ class Postgres(BaseContainer):
         name: str = "postgres",
         network: Optional[Network] = None,
     ):
-        """ Constructor for Postgres """
-        super(Postgres, self).__init__(port=port, repo=repo, tag=tag, name=name, network=network)
+        super(Postgres, self).__init__(
+            port=port, repo=repo, tag=tag, name=name, network=network
+        )
 
         if not environment:
             environment = {"POSTGRES_USER": "postgres", "POSTGRES_PASSWORD": ""}
+
+        environment["PGPORT"] = port
 
         self.user = environment.get("POSTGRES_USER", "postgres")
         self.password = environment.get("POSTGRES_PASSWORD", "")
@@ -29,6 +32,17 @@ class Postgres(BaseContainer):
             detach=True,
             name=name,
             network=self._network.name,
+            healthcheck={
+                "test": [
+                    "CMD",
+                    "pg_isready",
+                    "--port",
+                    str(self.port),
+                    "--username",
+                    self.user,
+                ],
+                "interval": 1000000000,
+            },
             ports={port: port},
             environment=environment,
         )
@@ -49,11 +63,11 @@ class Postgres(BaseContainer):
             db=self.db,
         )
 
-    def execute_query(self, query: str, path_or_buf: Union[str, bytes, None] = None):
+    def execute_query(self, query: str, path_or_str: Union[str, bytes, None] = None):
 
         self.exec(
             cmd=["psql", "-U", self.user, "-e", "--command", query],
-            path_or_buf=path_or_buf,
+            path_or_str=path_or_str,
         )
 
         return self
@@ -77,13 +91,13 @@ class Postgres(BaseContainer):
 
         return self
 
-    def copy(self, schema: str, table: str, path_or_buf: Union[str, bytes]):
+    def copy(self, schema: str, table: str, path_or_str: Union[str, bytes]):
 
         self.execute_query(
             query="COPY {schema}.{table} FROM STDIN DELIMITER ',';".format(
                 schema=schema, table=table
             ),
-            path_or_buf=path_or_buf,
+            path_or_str=path_or_str,
         )
 
         return self
