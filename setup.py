@@ -1,5 +1,6 @@
 from setuptools import setup
 
+
 setup(
     name="dvcr",
     version="0.4.0",
@@ -10,5 +11,13 @@ setup(
     license="MIT",
     packages=["dvcr", "dvcr.containers"],
     zip_safe=False,
-    install_requires=["docker", "colorama"],
+    install_requires=["docker", "colorama", "pyyaml"],
+    tests_require=[
+        "cassandra-driver",
+        "kafka-python",
+        "mysql-connector-python",
+        "psycopg2",
+        "redis",
+        "vertica_python",
+    ],
 )

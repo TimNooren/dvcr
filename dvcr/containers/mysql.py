@@ -61,7 +61,7 @@ class MySQL(BaseContainer):
             db=self.db,
         )
 
-    def execute_query(self, query, database="", path_or_buf=None):
+    def execute_query(self, query, database="", path_or_str=None):
 
         self.exec(
             cmd=[
@@ -73,7 +73,7 @@ class MySQL(BaseContainer):
                 "-e",
                 query,
             ],
-            path_or_buf=path_or_buf,
+            path_or_str=path_or_str,
         )
 
         time.sleep(1)
@@ -114,14 +114,14 @@ class MySQL(BaseContainer):
 
         self.execute_query(query=query)
 
-    def load_data(self, database, table, path_or_buf):
+    def load_data(self, database, table, path_or_str):
 
         self.execute_query(
             query="LOAD DATA LOCAL INFILE '/dev/stdin' INTO TABLE {table} FIELDS TERMINATED BY ',';".format(
                 table=table
             ),
             database=database,
-            path_or_buf=path_or_buf,
+            path_or_str=path_or_str,
         )
 
         return self

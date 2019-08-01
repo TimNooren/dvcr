@@ -17,7 +17,7 @@ class TestKafka(unittest.TestCase):
             Kafka()
             .wait()
             .write_records(
-                topic="test_topic", path_or_buf="1234|banana\n123✨|báñänà\n"*15000, key_separator="|"
+                topic="test_topic", path_or_str="1234|banana\n123✨|báñänà\n"*15000, key_separator="|"
             )
         )
 

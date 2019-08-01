@@ -27,7 +27,7 @@ class TestMySQL(unittest.TestCase):
             .load_data(
                 database="my_db",
                 table="my_table",
-                path_or_buf=os.path.join(script_dir, "records.csv"),
+                path_or_str=os.path.join(script_dir, "records.csv"),
             )
         )
 

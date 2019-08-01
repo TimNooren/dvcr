@@ -87,12 +87,12 @@ class Kafka(BaseContainer):
         self,
         topic: str,
         key_separator: Optional[str] = None,
-        path_or_buf: Optional[str] = None,
+        path_or_str: Optional[str] = None,
     ):
         """
         :param topic:           Name of topic
         :param key_separator:   Separator between key and value
-        :param path_or_buf:     Path to file or buffer
+        :param path_or_str:     Path to file or string containing data
         :return:                self
         """
         self._logger.info("Writing records to %s", topic)
@@ -110,7 +110,7 @@ class Kafka(BaseContainer):
         if key_separator:
             cmd += ["--property", "key.separator=" + key_separator]
 
-        self.exec(cmd=cmd, path_or_buf=path_or_buf, delay_secs=5)
+        self.exec(cmd=cmd, path_or_str=path_or_str, delay_secs=5)
 
         return self
 

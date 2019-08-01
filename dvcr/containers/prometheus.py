@@ -1,6 +1,4 @@
-import io
-import tarfile
-import time
+
 from typing import Optional
 
 import yaml
@@ -52,7 +50,7 @@ class Prometheus(BaseContainer):
 
         data = yaml.dump(self._config).encode("utf8")
 
-        self.copy(path_or_buf=data, target_path="/etc/prometheus/prometheus.yml")
+        self.copy(path_or_str=data, target_path="/etc/prometheus/prometheus.yml")
 
         self.exec(cmd=["kill", "-HUP", "1"])
 

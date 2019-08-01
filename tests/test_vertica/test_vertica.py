@@ -31,7 +31,7 @@ class TestVertica(unittest.TestCase):
         self.vertica.copy(
             schema="my_schema",
             table="my_table_1",
-            path_or_buf="string,2019-01-01 00:00:00",
+            path_or_str="string,2019-01-01 00:00:00",
             header=False,
         )
 
@@ -55,7 +55,7 @@ class TestVertica(unittest.TestCase):
         self.vertica.copy(
             schema="my_schema",
             table="my_table_2",
-            path_or_buf="string,1",
+            path_or_str="string,1",
             header=False,
         )
 
@@ -78,6 +78,6 @@ class TestVertica(unittest.TestCase):
             self.vertica.copy(
                 schema="my_schema",
                 table="my_table_3",
-                path_or_buf="string,not a timestamp",
+                path_or_str="string,not a timestamp",
                 header=False,
             )

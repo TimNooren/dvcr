@@ -35,7 +35,7 @@ class Vertica(BaseContainer):
             ports={port: port},
         )
 
-    def execute_query(self, query, path_or_buf=None):
+    def execute_query(self, query, path_or_str=None):
 
         self.exec(
             cmd=[
@@ -46,7 +46,7 @@ class Vertica(BaseContainer):
                 "-c",
                 query,
             ],
-            path_or_buf=path_or_buf,
+            path_or_str=path_or_str,
         )
 
         return self
@@ -70,7 +70,7 @@ class Vertica(BaseContainer):
 
         return self
 
-    def copy(self, schema, table, path_or_buf, header=True):
+    def copy(self, schema, table, path_or_str, header=True):
 
         if header:
             skip = 1
@@ -81,7 +81,7 @@ class Vertica(BaseContainer):
             query="COPY {schema}.{table} FROM LOCAL STDIN SKIP {skip} ABORT ON ERROR DELIMITER ',';".format(
                 schema=schema, table=table, skip=skip
             ),
-            path_or_buf=path_or_buf,
+            path_or_str=path_or_str,
         )
 
         return self

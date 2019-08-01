@@ -63,11 +63,11 @@ class Postgres(BaseContainer):
             db=self.db,
         )
 
-    def execute_query(self, query: str, path_or_buf: Union[str, bytes, None] = None):
+    def execute_query(self, query: str, path_or_str: Union[str, bytes, None] = None):
 
         self.exec(
             cmd=["psql", "-U", self.user, "-e", "--command", query],
-            path_or_buf=path_or_buf,
+            path_or_str=path_or_str,
         )
 
         return self
@@ -91,13 +91,13 @@ class Postgres(BaseContainer):
 
         return self
 
-    def copy(self, schema: str, table: str, path_or_buf: Union[str, bytes]):
+    def copy(self, schema: str, table: str, path_or_str: Union[str, bytes]):
 
         self.execute_query(
             query="COPY {schema}.{table} FROM STDIN DELIMITER ',';".format(
                 schema=schema, table=table
             ),
-            path_or_buf=path_or_buf,
+            path_or_str=path_or_str,
         )
 
         return self

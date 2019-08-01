@@ -2,7 +2,6 @@ import logging
 import random
 
 import colorama
-import docker
 
 COLOR = [
     colorama.Fore.RED,
@@ -56,12 +55,17 @@ def bright(string):
     return colorama.Style.BRIGHT + string + colorama.Style.NORMAL
 
 
-def resolve_path_or_buf(path_or_buf):
+def resolve_path_or_str(path_or_str):
+    """
+
+    :param path_or_str:             String representing a path to a file, or
+    :return:
+    """
     try:
-        with open(path_or_buf, "rb") as _file:
+        with open(path_or_str, "rb") as _file:
             data = _file.read()
     except OSError:
-        data = path_or_buf
+        data = path_or_str
         if isinstance(data, str):
             data = data.encode("utf8")
 
